@@ -27,16 +27,8 @@ interface MonthlyTimesheet {
 }
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<'list' | 'monthly'>('list');
+  const [currentView, setCurrentView] = useState<'home' | 'monthly'>('home');
   const [monthlyData, setMonthlyData] = useState<MonthlyTimesheet | null>(null);
-  const [timesheet, setTimesheet] = useState<Timesheet>({
-    date: new Date().toISOString().split('T')[0],
-    start_time: '',
-    end_time: '',
-    break_time: 0,
-    work_content: '',
-    total_hours: 0
-  });
   const [months, setMonths] = useState<{month: string; status: string}[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newMonthYear, setNewMonthYear] = useState<{year: number; month: number}>({
@@ -128,15 +120,6 @@ export default function Home() {
     setCurrentView('monthly');
   };
 
-  const getStatusEmoji = (status: string) => {
-    const emojiMap = {
-      'draft': '📝',      // 作成中
-      'submitted': '📤',  // 提出済み
-      'approved': '✅',   // 承認済み
-      'rejected': '❌'    // 差し戻し
-    };
-    return emojiMap[status as keyof typeof emojiMap] || '📝';
-  };
 
   const handleCreateNewMonth = () => {
     const { year, month } = newMonthYear;
@@ -205,12 +188,16 @@ export default function Home() {
       
       const statusText = {
         [TimesheetStatus.SUBMITTED]: '提出',
-        [TimesheetStatus.DRAFT]: '提出取り消し'
+        [TimesheetStatus.DRAFT]: '提出取り消し',
+        [TimesheetStatus.APPROVED]: '承認',
+        [TimesheetStatus.REJECTED]: '差し戻し'
       }[newStatus];
       
       const messages = {
         [TimesheetStatus.SUBMITTED]: `${monthlyData.year}年${monthlyData.month}月の勤務表を提出しますか？\n提出後は編集できなくなります。`,
-        [TimesheetStatus.DRAFT]: `${monthlyData.year}年${monthlyData.month}月の勤務表の提出を取り消しますか？`
+        [TimesheetStatus.DRAFT]: `${monthlyData.year}年${monthlyData.month}月の勤務表の提出を取り消しますか？`,
+        [TimesheetStatus.APPROVED]: `${monthlyData.year}年${monthlyData.month}月の勤務表を承認しますか？`,
+        [TimesheetStatus.REJECTED]: `${monthlyData.year}年${monthlyData.month}月の勤務表を差し戻しますか？`
       };
       const message = messages[newStatus];
       
@@ -286,12 +273,12 @@ export default function Home() {
             <div className="flex-shrink-0">
               <button
                 onClick={() => {
-                  setCurrentView('list');
+                  setCurrentView('home');
                   fetchMonths(); // 月一覧とステータスを更新
                 }}
                 className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium"
               >
-                ← 一覧に戻る
+                ← ホームに戻る
               </button>
             </div>
             
@@ -434,40 +421,72 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      <div className="w-64 bg-white shadow-lg p-4">
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="w-full mb-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200"
-        >
-          新規作成
-        </button>
-        
-        <h2 className="text-lg font-bold mb-4">過去の勤務表</h2>
-        <ul className="space-y-2">
-          {Array.isArray(months) && months.map(monthData => (
-            <li key={monthData.month}>
-              <button
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 p-10">
+      <h1 className="text-3xl font-semibold text-center text-gray-800 mb-12">勤務表管理システム</h1>
+      
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* 勤務表セクション */}
+        <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200">
+          <div className="flex items-center mb-6">
+            <span className="text-2xl mr-3">📋</span>
+            <h2 className="text-2xl font-semibold text-gray-800">勤務表</h2>
+          </div>
+          
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="w-full p-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all duration-200 transform hover:-translate-y-px flex items-center justify-center gap-2 mb-8"
+          >
+            <span>📝</span>
+            新規作成
+          </button>
+          
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">過去の勤務表</h3>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {Array.isArray(months) && months.map(monthData => (
+              <div
+                key={monthData.month}
                 onClick={() => handleMonthSelect(monthData.month)}
-                className="text-blue-600 hover:text-blue-800 underline block w-full text-left"
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-all duration-200 transform hover:-translate-y-px border border-gray-200"
               >
-                <span className="flex items-center space-x-2">
-                  <span>{getStatusEmoji(monthData.status)}</span>
-                  <span>{monthData.month}</span>
+                <div className="flex items-center">
+                  <span className="text-base mr-3 opacity-80">📊</span>
+                  <span className="text-sm text-gray-700 font-medium">{monthData.month}</span>
+                </div>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                  monthData.status === 'approved' ? 'bg-green-100 text-green-800' :
+                  monthData.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                  monthData.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                  'bg-indigo-100 text-indigo-800'
+                }`}>
+                  {monthData.status === 'approved' ? '承認済' :
+                   monthData.status === 'submitted' ? '提出済' :
+                   monthData.status === 'rejected' ? '差戻し' :
+                   '入力中'}
                 </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="flex-1 p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8 text-center">勤務表管理システム</h1>
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <p className="text-gray-600 mb-4">
-              左のサイドバーから勤務表を選択するか、新規作成ボタンで新しい月の勤務表を作成してください。
-            </p>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* 休暇届セクション */}
+        <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200">
+          <div className="flex items-center mb-6">
+            <span className="text-2xl mr-3">🌴</span>
+            <h2 className="text-2xl font-semibold text-gray-800">休暇届</h2>
+          </div>
+          
+          <button
+            className="w-full p-4 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all duration-200 transform hover:-translate-y-px flex items-center justify-center gap-2 mb-8"
+            disabled
+          >
+            <span>✈️</span>
+            休暇届作成
+          </button>
+          
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">申請一覧</h3>
+          <div className="text-center py-10 text-gray-500">
+            <div className="text-5xl mb-4 opacity-30">📋</div>
+            <div className="text-sm">休暇届機能は準備中です</div>
           </div>
         </div>
       </div>
@@ -533,7 +552,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
